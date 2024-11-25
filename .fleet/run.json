@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "type": "python",
+            "name": "Run school-project",
+            "file": "school_project/__main__.py",
+            "arguments": [],
+        },
+
+    ]
+}
