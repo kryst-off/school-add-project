@@ -1,4 +1,5 @@
-from school_project.video_stream_processor import VideoStreamProcessor
+# from school_project.video_stream_processor import VideoStreamProcessor
+from school_project.video_stream_processor_mdf import VideoStreamProcessor
 
 INPUT_URL = "http://88.212.15.27/live/nova_avc_25p/playlist.m3u8"
 
