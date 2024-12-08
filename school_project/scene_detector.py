@@ -1,10 +1,6 @@
 import cv2
 import numpy as np
 
-# Threshold below which we consider frames to be from different scenes
-# Higher values (closer to 1) mean more sensitive detection
-SCENE_CHANGE_THRESHOLD = 0.9
-
 
 def calculate_frame_histogram(frame):
     """Calculate histogram of a frame.
@@ -33,63 +29,82 @@ def calculate_frame_histogram(frame):
     return hist_gray, hist_color
 
 
-def detect_scene_change(
-    current_frame, previous_frame, threshold=SCENE_CHANGE_THRESHOLD
-):
-    """Detect scene change using multiple metrics.
+def calculate_frame_similarity(current_frame, previous_frame):
+    """Calculate similarity between frames, returns value between 0 and 1.
 
-    We use multiple complementary methods to make detection more robust:
-    1. Histogram comparison - detects overall distribution changes
-    2. Mean Absolute Difference - sensitive to sudden content changes
-    3. Structural Similarity - focuses on structural changes
-
-    Returns:
-        bool: True if a scene change is detected, False otherwise
+    Higher value means frames are more similar.
     """
     if previous_frame is None:
-        return False
+        return 1.0
 
-    # 1. Histogram comparison
-    # Compare both color and grayscale histograms using correlation method
-    # Correlation ranges from -1 to 1, where 1 means perfect match
     hist_gray_curr, hist_color_curr = calculate_frame_histogram(current_frame)
     hist_gray_prev, hist_color_prev = calculate_frame_histogram(previous_frame)
 
     correl_gray = cv2.compareHist(hist_gray_curr, hist_gray_prev, cv2.HISTCMP_CORREL)
     correl_color = cv2.compareHist(hist_color_curr, hist_color_prev, cv2.HISTCMP_CORREL)
 
-    # 2. Mean Absolute Difference (MAD)
-    # Measures average pixel-wise change between frames
-    # Good for detecting sudden content changes
     curr_gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
     prev_gray = cv2.cvtColor(previous_frame, cv2.COLOR_BGR2GRAY)
     mad = np.mean(np.abs(curr_gray.astype(float) - prev_gray.astype(float)))
-    mad_normalized = mad / 255.0  # Normalize to [0,1] range
+    mad_normalized = mad / 255.0
 
-    # 3. Structural Similarity Index (SSIM)
-    # Using histogram intersection as a simple approximation of structural similarity
-    # Higher values indicate more similarity
     ssim = cv2.compareHist(hist_gray_curr, hist_gray_prev, cv2.HISTCMP_INTERSECT)
     ssim_normalized = ssim / np.sum(hist_gray_curr)
 
-    # Weight the different metrics based on their reliability
-    # Histograms get higher weight as they're more reliable for scene detection
-    weights = {"correl_gray": 0.3, "correl_color": 0.3, "mad": 0.2, "ssim": 0.2}
+    identical_regions_score = detect_identical_regions(current_frame, previous_frame)
 
-    # Combine all metrics into a single similarity score
-    # Higher score means more similar frames
+    weights = {
+        "correl_gray": 0.2,
+        "correl_color": 0.2,
+        "mad": 0.2,
+        "ssim": 0.2,
+        "identical_regions": 0.2,
+    }
+
     total_similarity = (
         weights["correl_gray"] * correl_gray
         + weights["correl_color"] * correl_color
-        # Invert MAD since higher means less similar
         + weights["mad"] * (1 - mad_normalized)
         + weights["ssim"] * ssim_normalized
+        + weights["identical_regions"] * identical_regions_score
     )
 
-    # Use both static and dynamic thresholds
-    # Dynamic threshold adjusts based on motion (MAD) to reduce false positives
-    # during high-motion scenes
-    static_threshold = threshold
-    dynamic_threshold = threshold * (1 + mad_normalized * 0.2)
+    # Dynamic ratio for MAD to reduce false positives during high-motion scenes
+    mad_ratio = 0.2
+    mad_correction = 1 + mad_normalized * mad_ratio
 
-    return total_similarity < min(static_threshold, dynamic_threshold)
+    return total_similarity * mad_correction
+
+
+def detect_identical_regions(current_frame, previous_frame):
+    """Detect identical regions between two frames.
+
+    Returns:
+        float: Score in the range 0-1, where 1 means more identical areas
+    """
+    # Create mask of identical pixels
+    diff = cv2.absdiff(current_frame, previous_frame)
+    mask = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY)
+    identical_pixels = cv2.threshold(mask, 1, 255, cv2.THRESH_BINARY_INV)[1]
+
+    # Use morphological operations to remove noise
+    kernel = np.ones((3, 3), np.uint8)
+    identical_pixels = cv2.morphologyEx(identical_pixels, cv2.MORPH_CLOSE, kernel)
+
+    # Find connected components (potential logos or other identical areas)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+        identical_pixels
+    )
+
+    # Calculate total area of identical areas (ignore small areas)
+    total_area = 0
+    min_area = 100  # Minimum area in pixels
+    for i in range(1, num_labels):  # Start from 1, as 0 is background
+        if stats[i, cv2.CC_STAT_AREA] >= min_area:
+            total_area += stats[i, cv2.CC_STAT_AREA]
+
+    # Normalize by frame area
+    frame_area = current_frame.shape[0] * current_frame.shape[1]
+    similarity_score = total_area / frame_area
+
+    return similarity_score
