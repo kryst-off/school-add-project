@@ -1,9 +1,9 @@
-# from school_project.video_stream_processor import VideoStreamProcessor
-from school_project.video_stream_processor import VideoStreamProcessor
+from school_project.scene_processor import process_video
+# from school_project.scene_processor import process_video as process_video_with_audio
 
-INPUT_URL = "http://88.212.15.27/live/nova_avc_25p/playlist.m3u8"
+# Nejdřív rozřežeme video podle značek
+video_file = "recording_20250103_184937.mp4"
+process_video(video_file)
 
-if __name__ == "__main__":
-    # Create an instance of StreamProcessor and start processing packewdts
-    processor = VideoStreamProcessor(INPUT_URL)
-    processor.process_packets()
+# Pak spojíme podobné scény podle zvuku
+# process_video_with_audio(video_file)
