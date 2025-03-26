@@ -23,9 +23,8 @@ def cut_video_segments(video_path: str, segments_file: str) -> None:
         segments = []
         with open(segments_file, 'r') as f:
             lines = f.readlines()
-            for i in range(len(lines)-1):
-                start_pts = int(lines[i].split()[1])
-                end_pts = int(lines[i+1].split()[0])
+            for line in lines:
+                start_pts, end_pts = map(int, line.split())
                 # Převod PTS na sekundy
                 start_time = start_pts * time_base
                 end_time = end_pts * time_base
