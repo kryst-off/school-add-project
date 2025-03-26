@@ -1,14 +1,16 @@
 from pathlib import Path
+from datetime import datetime
 import av
 import logging
 import time
+import pymongo
 
 # Nastavení loggeru
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stream_downald")
 
 # Konstanty
-INPUT_URL = "https://prima-ott-live-sec.ssl.cdn.cra.cz/QCAQ5r-EFWokegNbLPhkTg==,1739702530/channels/prima_cool/playlist-live_lq.m3u8"
+INPUT_URL = "https://prima-ott-live-sec.ssl.cdn.cra.cz/ZjmQ8eE2TiF8Yu1CmQeY7A==,1743109987/channels/prima_cool/playlist-live_lq.m3u8"
 DURATION_LIMIT = 1800  # sekundy
 
 def download_stream(input_url: str = INPUT_URL) -> str:
@@ -25,14 +27,15 @@ def download_stream(input_url: str = INPUT_URL) -> str:
             logger.info("Created materials directory")
             
         # Vytvoření cesty pro výstupní soubor v nova
-        nova_dir = materials_dir / "nova"
-        if not nova_dir.exists():
-            nova_dir.mkdir()
+        primacool_dir = materials_dir / "prima_cool"
+        if not primacool_dir.exists():
+            primacool_dir.mkdir()
             logger.info("Created nova directory")
         
         # Vytvoření adresáře podle názvu streamu
+        recorddate = datetime.now()
         timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        stream_dir = nova_dir / f"stream_{timestamp}"
+        stream_dir = primacool_dir / f"stream_{timestamp}"
         if not stream_dir.exists():
             stream_dir.mkdir()
             logger.info(f"Created stream directory: {stream_dir}")
@@ -93,8 +96,21 @@ def download_stream(input_url: str = INPUT_URL) -> str:
         if output_container:
             output_container.close()
         logger.info("Download finished")
-    
+
+    myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+    mydb = myclient["tv"]
+    mycol = mydb["records"]
+    record = {
+        "name": str(output_filename.name),
+        "status": "downloaded",
+        "source": INPUT_URL,
+        "date": recorddate
+    }
+    mycol.insert_one(record)
+    logger.info(f"Added record to database: {record}")
+
     return str(output_filename)
+
 
 if __name__ == "__main__":
     logger.info("Starting stream download...")
