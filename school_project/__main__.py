@@ -1,6 +1,6 @@
 import time
 import logging
-from stream_downalder import download_stream
+from stream_downloader import download_stream
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

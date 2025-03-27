@@ -10,8 +10,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stream_downald")
 
 # Konstanty
-INPUT_URL = "https://prima-ott-live-sec.ssl.cdn.cra.cz/ZjmQ8eE2TiF8Yu1CmQeY7A==,1743109987/channels/prima_cool/playlist-live_lq.m3u8"
-DURATION_LIMIT = 1800  # sekundy
+import os
+
+MONGODB_URI = os.getenv('MONGODB_URI', "mongodb://localhost:27017/")
+MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', "tv")
+STORAGE_BASE_DIR = os.getenv('STORAGE_BASE_DIR', "materials")
+SOURCE = os.getenv('SOURCE', "prima_cool")
+INPUT_URL = os.getenv('INPUT_URL', "https://prima-ott-live-sec.ssl.cdn.cra.cz/ZjmQ8eE2TiF8Yu1CmQeY7A==,1743109987/channels/prima_cool/playlist-live_lq.m3u8")
+DURATION_LIMIT = int(os.getenv('DURATION_LIMIT', 1800))  # sekundy
 
 def download_stream(input_url: str = INPUT_URL) -> str:
     """Stáhne stream a uloží ho do souboru v adresáři materials/nova/stream_name"""
@@ -21,24 +27,20 @@ def download_stream(input_url: str = INPUT_URL) -> str:
     
     try:
         # Vytvoření cesty pro výstupní soubor v materials
-        materials_dir = Path("materials")
+        materials_dir = Path(STORAGE_BASE_DIR)
         if not materials_dir.exists():
             materials_dir.mkdir()
             logger.info("Created materials directory")
             
         # Vytvoření cesty pro výstupní soubor v nova
-        primacool_dir = materials_dir / "prima_cool"
-        if not primacool_dir.exists():
-            primacool_dir.mkdir()
-            logger.info("Created nova directory")
+        source_dir = materials_dir / SOURCE / "records"
+        if not source_dir.exists():
+            source_dir.mkdir()
+            logger.info(f"Created {SOURCE} directory")
         
         # Vytvoření adresáře podle názvu streamu
         recorddate = datetime.now()
         timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        stream_dir = primacool_dir / f"stream_{timestamp}"
-        if not stream_dir.exists():
-            stream_dir.mkdir()
-            logger.info(f"Created stream directory: {stream_dir}")
         
         logger.info("Attempting to open input stream...")
         input_container = av.open(input_url, timeout=30)
@@ -47,7 +49,7 @@ def download_stream(input_url: str = INPUT_URL) -> str:
         video_stream = input_container.streams.video[0]
         audio_stream = input_container.streams.audio[0]
         
-        output_filename = stream_dir / f'recording_{timestamp}.mp4'
+        output_filename = source_dir / f'recording_{timestamp}.mp4'
         
         output_container = av.open(str(output_filename), mode='w')
         output_video = output_container.add_stream(template=video_stream)
@@ -97,14 +99,18 @@ def download_stream(input_url: str = INPUT_URL) -> str:
             output_container.close()
         logger.info("Download finished")
 
-    myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-    mydb = myclient["tv"]
+    myclient = pymongo.MongoClient(MONGODB_URI)
+    mydb = myclient[MONGODB_DATABASE]
     mycol = mydb["records"]
+    
+    # Convert absolute path to relative path
+    relative_path = str(output_filename.relative_to(Path(STORAGE_BASE_DIR)))
+    
     record = {
-        "name": str(output_filename.name),
-        "status": "downloaded",
-        "source": INPUT_URL,
-        "date": recorddate
+        "source": SOURCE,
+        "start_at": recorddate,
+        "file_path": relative_path,
+        "status": "downloaded"
     }
     mycol.insert_one(record)
     logger.info(f"Added record to database: {record}")
