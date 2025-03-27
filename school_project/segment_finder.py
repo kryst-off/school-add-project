@@ -2,6 +2,8 @@ import av
 import logging
 import time
 from pathlib import Path
+import pymongo
+from datetime import timedelta
 
 from school_project.detection import SilenceDetector, analyze_video_frame
 
@@ -17,13 +19,14 @@ def format_time(seconds: float) -> str:
     remaining_seconds = seconds % 60
     return f"{minutes:02d}:{remaining_seconds:06.3f}"
 
-def detect_silent_black_segments(video_path: str) -> None:
+def detect_silent_black_segments(video_path: str, record: dict) -> None:
     """
     Detekuje segmenty ve videu, které jsou současně černé a tiché.
     Zapisuje hranice mezi segmenty pro následné vystřižení.
     
     Args:
         video_path: Cesta k video souboru
+        record: MongoDB záznam obsahující metadata o videu
     """
     try:
         logger.info(f"Opening video file: {video_path}")
@@ -83,6 +86,27 @@ def detect_silent_black_segments(video_path: str) -> None:
                         f.write(f"{start_pts} {end_pts}\n")
                     logger.info(f"Segment boundary: {format_time(last_segment_end)} - {format_time(segment_start)}")
 
+                    # Get original video date from record
+                    video_date = record["date"]
+                    # Calculate segment timestamp using video date and segment start time
+                    segment_date = video_date + timedelta(seconds=last_segment_end)
+                    # Create output filename using segment timestamp
+                    timestamp = segment_date.strftime('%Y%m%d_%H%M%S')
+                    output_filename = Path(video_path).parent / f'segment_{timestamp}.mp4'
+
+                    myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+                    mydb = myclient["tv"]
+                    mycol = mydb["segments"]
+                    record = {
+                        "name": str(output_filename.name),
+                        "record_name": record["name"],
+                        "status": "detected",
+                        "date": segment_date,
+                        "pts_start": start_pts,
+                        "pts_end": end_pts
+                    }
+                    mycol.insert_one(record)
+
                 last_segment_end = video_time
                 in_silent_black_segment = False
                 segment_start = None
@@ -90,8 +114,20 @@ def detect_silent_black_segments(video_path: str) -> None:
     except Exception as e:
         logger.error(f"Error processing video: {e}")
     finally:
+        myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+        mydb = myclient["tv"]
+        mycol = mydb["records"]
+        mycol.update_one({"_id": record["_id"]}, {"$set": {"status": "detected"}})
+        logger.info(f"Updated record status to 'detected'")
         container.close()
 
 if __name__ == "__main__":
-    video_file = Path("materials") / "something" / "test_video" / "stream_20241220_235617.mp4"
-    detect_silent_black_segments(str(video_file))
+    myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+    mydb = myclient["tv"]
+    mycol = mydb["records"]
+    record = mycol.find_one({"status": "downloaded"})
+    name = record["name"]
+
+    video_file = Path("materials") / "prima_cool" / name.replace("recording", "stream")[:-4] / name
+    
+    detect_silent_black_segments(str(video_file), record)
