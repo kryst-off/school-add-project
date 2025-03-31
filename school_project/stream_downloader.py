@@ -1,22 +1,23 @@
 from pathlib import Path
 from datetime import datetime
+from dotenv import load_dotenv
 import av
 import logging
 import time
 import pymongo
+import os
 
 # Nastavení loggeru
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("stream_downald")
 
 # Konstanty
-import os
-
+load_dotenv()
 MONGODB_URI = os.getenv('MONGODB_URI', "mongodb://localhost:27017/")
 MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', "tv")
 STORAGE_BASE_DIR = os.getenv('STORAGE_BASE_DIR', "materials")
 SOURCE = os.getenv('SOURCE', "prima_cool")
-INPUT_URL = os.getenv('INPUT_URL', "https://prima-ott-live-sec.ssl.cdn.cra.cz/ZjmQ8eE2TiF8Yu1CmQeY7A==,1743109987/channels/prima_cool/playlist-live_lq.m3u8")
+INPUT_URL = os.getenv('INPUT_URL', "https://prima-ott-live-sec.ssl.cdn.cra.cz/EbdeV6oyzuOnM3nfSJEblw==,1743196565/channels/prima_cool/playlist-live_lq.m3u8")
 DURATION_LIMIT = int(os.getenv('DURATION_LIMIT', 1800))  # sekundy
 
 def download_stream(input_url: str = INPUT_URL) -> str:
@@ -26,19 +27,19 @@ def download_stream(input_url: str = INPUT_URL) -> str:
     output_container = None
     
     try:
-        # Vytvoření cesty pro výstupní soubor v materials
+        # create materials directory if it doesn't exist
         materials_dir = Path(STORAGE_BASE_DIR)
         if not materials_dir.exists():
-            materials_dir.mkdir()
+            materials_dir.mkdir(parents=True)
             logger.info("Created materials directory")
             
-        # Vytvoření cesty pro výstupní soubor v nova
+        # create directory for records recursively
         source_dir = materials_dir / SOURCE / "records"
         if not source_dir.exists():
-            source_dir.mkdir()
+            source_dir.mkdir(parents=True)
             logger.info(f"Created {SOURCE} directory")
         
-        # Vytvoření adresáře podle názvu streamu
+        # create directory for records recursively
         recorddate = datetime.now()
         timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
         
