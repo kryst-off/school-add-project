@@ -3,14 +3,11 @@ import pymongo
 myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["tv"]
 mycol = mydb["records"]
+mycol2 = mydb["segments"]
 
-myquery = {"status": "detected"}
+myquery = {"source": "prima_cool"}
 
 mydoc = mycol.find(myquery)
 
-for x in mydoc:
-    print(x)
-    mycol.update_one({"_id": x["_id"]}, {
-    "$set": {"status": "downloaded"}
-    })
+
 

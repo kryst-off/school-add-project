@@ -67,6 +67,9 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
                 if old_silent != is_silent:
                     logger.info(f'Silent {is_silent} at {format_time(video_time)}')
             
+            if is_black and is_silent:
+                logger.info(f'Black and silent at {format_time(video_time)}')
+
             # Stavový stroj
             if is_black and is_silent and not in_silent_black_segment:
                 segment_start = video_time
@@ -101,7 +104,7 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
                     myclient = pymongo.MongoClient("mongodb://localhost:27017/")
                     mydb = myclient["tv"]
                     mycol = mydb["segments"]
-                    record = {
+                    segment_record = {
                         "record_id": record["_id"],
                         "source": record["source"],
                         "record_file_path": record["file_path"],
@@ -110,12 +113,13 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
                         "end_at": record["start_at"] + timedelta(seconds=segment_start),
                         "start_secs": last_segment_end,
                         "end_secs": segment_start,
+                        "duration_secs": segment_start - last_segment_end,
 
                         # "file_path": str(output_filename),
 
                         "status": "detected",
                     }
-                    mycol.insert_one(record)
+                    mycol.insert_one(segment_record)
 
                 last_segment_end = video_time
                 in_silent_black_segment = False
@@ -127,16 +131,17 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
         myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = myclient["tv"]
         mycol = mydb["records"]
-        # mycol.update_one({"_id": record["_id"]}, {"$set": {"status": "detected"}})
-        # logger.info(f"Updated record status to 'detected'")
+        mycol.update_one({"_id": record["_id"]}, {"$set": {"status": "detected"}})
+        logger.info(f"Updated record status to 'detected'")
         container.close()
 
 if __name__ == "__main__":
     myclient = pymongo.MongoClient("mongodb://localhost:27017/")
     mydb = myclient["tv"]
     mycol = mydb["records"]
-    record = mycol.find_one({"status": "downloaded"})
+    records = mycol.find({"status": "downloaded"})
 
-    video_file = record["file_path"]
-    
-    detect_silent_black_segments(str(video_file), record)
+    for record in records:
+        video_file = record["file_path"]
+        
+        detect_silent_black_segments(str(video_file), record)
