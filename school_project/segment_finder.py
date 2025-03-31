@@ -30,6 +30,10 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
     """
     try:
         logger.info(f"Opening video file: {video_path}")
+
+        materials_path = Path("materials") / video_path
+        video_path = str(materials_path)
+
         container = av.open(video_path)
         
         # Získání streamů
@@ -87,7 +91,7 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
                     logger.info(f"Segment boundary: {format_time(last_segment_end)} - {format_time(segment_start)}")
 
                     # Get original video date from record
-                    video_date = record["date"]
+                    video_date = record["start_at"]
                     # Calculate segment timestamp using video date and segment start time
                     segment_date = video_date + timedelta(seconds=last_segment_end)
                     # Create output filename using segment timestamp
@@ -98,12 +102,18 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
                     mydb = myclient["tv"]
                     mycol = mydb["segments"]
                     record = {
-                        "name": str(output_filename.name),
-                        "record_name": record["name"],
+                        "record_id": record["_id"],
+                        "source": record["source"],
+                        "record_file_path": record["file_path"],
+
+                        "start_at": record["start_at"] + timedelta(seconds=last_segment_end),
+                        "end_at": record["start_at"] + timedelta(seconds=segment_start),
+                        "start_secs": last_segment_end,
+                        "end_secs": segment_start,
+
+                        # "file_path": str(output_filename),
+
                         "status": "detected",
-                        "date": segment_date,
-                        "pts_start": start_pts,
-                        "pts_end": end_pts
                     }
                     mycol.insert_one(record)
 
@@ -117,8 +127,8 @@ def detect_silent_black_segments(video_path: str, record: dict) -> None:
         myclient = pymongo.MongoClient("mongodb://localhost:27017/")
         mydb = myclient["tv"]
         mycol = mydb["records"]
-        mycol.update_one({"_id": record["_id"]}, {"$set": {"status": "detected"}})
-        logger.info(f"Updated record status to 'detected'")
+        # mycol.update_one({"_id": record["_id"]}, {"$set": {"status": "detected"}})
+        # logger.info(f"Updated record status to 'detected'")
         container.close()
 
 if __name__ == "__main__":
@@ -126,8 +136,7 @@ if __name__ == "__main__":
     mydb = myclient["tv"]
     mycol = mydb["records"]
     record = mycol.find_one({"status": "downloaded"})
-    name = record["name"]
 
-    video_file = Path("materials") / "prima_cool" / name.replace("recording", "stream")[:-4] / name
+    video_file = record["file_path"]
     
     detect_silent_black_segments(str(video_file), record)

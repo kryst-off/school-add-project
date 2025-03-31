@@ -4,18 +4,13 @@ myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["tv"]
 mycol = mydb["records"]
 
-mydict = [{ "name": "Mathew", "address": "Highway 37" },
-          { "name": "Jackob", "address": "Highway 37" }]
+myquery = {"status": "detected"}
 
-# x = mycol.insert_one(mydict)
+mydoc = mycol.find(myquery)
 
-myquery = {"name": "Mathew"}
-
-mydoc = mycol.find_one(myquery)
-
-mycol.update_one({"_id": mydoc["_id"]}, {
-   "$set": {
-       "address": "new address"
-   } 
-})
+for x in mydoc:
+    print(x)
+    mycol.update_one({"_id": x["_id"]}, {
+    "$set": {"status": "downloaded"}
+    })
 
