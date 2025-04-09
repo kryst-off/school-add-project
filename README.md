@@ -28,10 +28,16 @@ Tento projekt je systém pro detekci a extrakci televizních reklam z živého v
 - Aktualizuje segmenty na status 'approved' nebo 'needs_review'
 - Pomáhá filtrovat falešné detekce a nepravidelné segmenty
 
+### upload_to_cloud.py
+- Nahrává schválené segmenty do cloudového úložiště (cgs)
+- Nastavuje status na 'uploaded' po dokončení přenosu
+
+
 ## Pracovní postup
 1. segment_finder.py analyzuje video soubory a detekuje potenciální reklamní segmenty
 2. segment_extractor.py vystřihne detekované segmenty do samostatných souborů
 3. segment_length_validator.py validuje segmenty podle jejich délky
+4. upload_to_cloud.py nahraje segmenty na cloud
 
 ## Struktura databáze
 Schéma MongoDB vypaá nasledovně:
@@ -57,3 +63,5 @@ Schéma MongoDB vypaá nasledovně:
         - "file_path": "http://ravineo-tv/prima_cool/stream_20250327_123456/stream_20250327_123456.mp4",
 
         - "status": "detected", # detected, extracted, confirmed, rejected
+
+
