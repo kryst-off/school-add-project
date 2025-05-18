@@ -2,18 +2,59 @@
 
 Tento projekt je systém pro detekci a extrakci televizních reklam z živého vysílání. Skládá se z několika Python skriptů, které spolupracují na zpracování video souborů a identifikaci reklamních segmentů.
 
+## Instalace a spuštění
+
+### Předpoklady
+- Python 3.12 nebo novější
+- Poetry (správce závislostí pro Python)
+- MongoDB databáze
+
+### Instalace Poetry
+1. Instalace Poetry (pokud ještě není nainstalován):
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+2. Ověření instalace:
+```bash
+poetry --version
+```
+
+### Nastavení projektu
+1. Klonování repozitáře:
+```bash
+git clone <url-repozitáře>
+cd school-project
+```
+
+2. Vytvoření a aktivace virtuálního prostředí pomocí Poetry:
+```bash
+poetry install
+poetry shell
+```
+
+3. Nastavení proměnných prostředí:
+- Vytvořte soubor `.env` v kořenovém adresáři projektu
+- Přidejte do něj potřebné proměnné prostředí MONGODB_URI a INPUT_URL
+
 ## Komponenty
 ### stream_downloader.py
 - Stahuje živé vysílání z IPTV streamů
 - Ukládá nahrávky do půlhodinových souborů ve formátu MP4
 - Automaticky vytváří záznamy v MongoDB s informacemi o nahrávce
 - Zajišťuje kontinuální nahrávání s minimálními výpadky
+```bash
+python -m school_project.stream_downloader
+```
 
 ### segment_finder.py
 - Hlavní skript pro detekci reklamních segmentů ve videích
 - Využívá analýzu zvuku a obrazu k identifikaci potenciálních reklamních bloků
 - Detekuje černé snímky a tiché úseky, které typicky označují hranice reklam
 - Ukládá detekované segmenty do MongoDB se statusem 'detected'
+```bash
+python -m school_project.segment_finder
+```
 
 ### segment_extractor.py
 - Zpracovává segmenty označené jako 'detected' v databázi
@@ -21,47 +62,62 @@ Tento projekt je systém pro detekci a extrakci televizních reklam z živého v
 - Ukládá extrahované segmenty jako samostatné MP4 soubory
 - Aktualizuje status segmentu na 'saved' při úspěšné extrakci
 - Zpracovává chyby a aktualizuje status podle potřeby
+```bash
+python -m school_project.segment_extractor
+```
 
 ### segment_length_validator.py
 - Validuje délku extrahovaných reklamních segmentů
 - Kontroluje, zda je délka segmentu dělitelná 5 sekundami (běžná délka reklam)
 - Aktualizuje segmenty na status 'approved' nebo 'needs_review'
 - Pomáhá filtrovat falešné detekce a nepravidelné segmenty
+```bash
+python -m school_project.segment_length_validator
+```
 
 ### upload_to_cloud.py
 - Nahrává schválené segmenty do cloudového úložiště (cgs)
 - Nastavuje status na 'uploaded' po dokončení přenosu
+```bash
+python -m school_project.upload_to_gcs
+```
 
 
 ## Pracovní postup
 1. segment_finder.py analyzuje video soubory a detekuje potenciální reklamní segmenty
 2. segment_extractor.py vystřihne detekované segmenty do samostatných souborů
 3. segment_length_validator.py validuje segmenty podle jejich délky
-4. upload_to_cloud.py nahraje segmenty na cloud
+4. upload_to_cloud.py nahraje segmenty na Google Cloud Storage
 
 ## Struktura databáze
-Schéma MongoDB vypaá nasledovně:
- - TV
-     - records
-        - "_id": ObjectId("66f090909090909090909090"),
-        - "source": "prima_cool",
-        - "start_at": datetime.now(),
-        - "file_path": "http://ravineo-tv/prima_cool/stream_20250327_123456/stream_20250327_123456.mp4",
-        - "status": "downloaded", # downloaded, processed
-    - segments
-        -  "_id": ObjectId("66f090909090909090909091"),
 
-        - "record_id": ObjectId("66f090909090909090909090"),
-        - "source": "prima_cool",
-        - "record_file_path": "http://ravineo-tv/prima_cool/stream_20250327_123456/stream_20250327_123456.mp4",
+Databáze obsahuje dvě hlavní kolekce: `records` a `segments`.
 
-        - "start_at": datetime.now(),
-        - "end_at": datetime.now(),
-        - "start_secs": 100.5,
-        - "end_secs": 200.5,
+### Kolekce: records
+Záznamy o stažených video souborech.
 
-        - "file_path": "http://ravineo-tv/prima_cool/stream_20250327_123456/stream_20250327_123456.mp4",
+| Pole | Typ | Popis |
+|------|-----|--------|
+| _id | ObjectId | Unikátní identifikátor záznamu |
+| source | string | Zdroj streamu (např. "prima_cool") |
+| start_at | datetime | Čas začátku nahrávky |
+| file_path | string | Cesta k souboru (URL) |
+| status | string | Status záznamu ("downloaded", "processed") |
 
-        - "status": "detected", # detected, extracted, confirmed, rejected
+### Kolekce: segments
+Detekované a zpracované reklamní segmenty.
+
+| Pole | Typ | Popis |
+|------|-----|--------|
+| _id | ObjectId | Unikátní identifikátor segmentu |
+| record_id | ObjectId | Reference na záznam v kolekci records |
+| source | string | Zdroj streamu |
+| record_file_path | string | Cesta k původnímu souboru |
+| start_at | datetime | Čas začátku segmentu |
+| end_at | datetime | Čas konce segmentu |
+| start_secs | float | Začátek segmentu v sekundách |
+| end_secs | float | Konec segmentu v sekundách |
+| file_path | string | Cesta k extrahovanému segmentu |
+| status | string | Status segmentu ("detected", "extracted", "confirmed", "rejected") |
 
 

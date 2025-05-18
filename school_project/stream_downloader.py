@@ -17,7 +17,7 @@ MONGODB_URI = os.getenv('MONGODB_URI', "mongodb://localhost:27017/")
 MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', "tv")
 STORAGE_BASE_DIR = os.getenv('STORAGE_BASE_DIR', "materials")
 SOURCE = os.getenv('SOURCE', "prima_cool")
-INPUT_URL = os.getenv('INPUT_URL', "https://prima-ott-live-sec.ssl.cdn.cra.cz/CboIqYUsOhh9tdBT5ESxhg==,1744216671/channels/prima_cool/playlist-live_lq.m3u8")
+INPUT_URL = os.getenv('INPUT_URL', "https://prima-ott-live-sec.ssl.cdn.cra.cz/nBv0IIUwhBWyBNagB1-vBQ==,1746248991/channels/prima_cool/playlist-live_lq.m3u8")
 DURATION_LIMIT = int(os.getenv('DURATION_LIMIT', 1800))  # sekundy
 
 def download_stream(input_url: str = INPUT_URL) -> str:

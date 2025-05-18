@@ -52,14 +52,14 @@ myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["tv"]
 mycol = mydb["segments"]
 
-segments = mycol.find_one({"status": "approved"})
+segments = mycol.find({"status": "approved"})
 
 for segment in segments:
     if not segment:
         logger.error("No approved segments found in database")
         exit(1)
 
-    path = Path("materials") / segments["segment_file_path"]
+    path = Path("materials") / segment["segment_file_path"]
 
     # Kontrola existence souboru
     if not path.exists():
@@ -70,8 +70,8 @@ for segment in segments:
 
     try:
         # Zvýšení timeoutu na 600 sekund (10 minut)
-        upload_blob("ravineo-tv", str(path), segments["segment_file_path"], timeout=600)
-        mycol.update_one({"_id": segments["_id"]}, {"$set": {"status": "uploaded"}})
+        upload_blob("ravineo-tv", str(path), segment["segment_file_path"], timeout=600)
+        mycol.update_one({"_id": segment["_id"]}, {"$set": {"status": "uploaded"}})
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
         # Pokud chcete další diagnostické informace
