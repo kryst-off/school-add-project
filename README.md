@@ -42,9 +42,9 @@ poetry shell
 - Stahuje živé vysílání z IPTV streamů
 - Ukládá nahrávky do půlhodinových souborů ve formátu MP4
 - Automaticky vytváří záznamy v MongoDB s informacemi o nahrávce
-- Zajišťuje kontinuální nahrávání s minimálními výpadky
+- Zajišťuje kontinuální nahrávání s minimálními výpadky (smyčka v `__main__.py`)
 ```bash
-python -m school_project.stream_downloader
+python -m school_project.__main__.py
 ```
 
 ### segment_finder.py
@@ -117,6 +117,7 @@ Detekované a zpracované reklamní segmenty.
 | end_at | datetime | Čas konce segmentu |
 | start_secs | float | Začátek segmentu v sekundách |
 | end_secs | float | Konec segmentu v sekundách |
+| duration_secs | float | Délka segmentu v skundách |
 | file_path | string | Cesta k extrahovanému segmentu |
 | status | string | Status segmentu ("detected", "extracted", "confirmed", "rejected") |
 
